@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const { userUpdateValidation } = require('../middlewares/validation');
 const { getUserInfo, updateUserInfo } = require('../controllers/users');
+const { userUpdateValidation } = require('../middlewares/validation');
 
 router.get('/me', getUserInfo);
 router.patch(
