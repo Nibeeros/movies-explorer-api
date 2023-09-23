@@ -1,37 +1,32 @@
-const { errors } = require('celebrate');
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const helmet = require('helmet');
-const cors = require('cors');
-
 const cookieParser = require('cookie-parser');
-const { MONGODB_URI, PORT, origin } = require('./utils/Config');
-const { limit } = require('./utils/RateLimiter');
+const { errors } = require('celebrate');
+const helmet = require('helmet');
 const { requestLogger, errorLogger } = require('./middlewares/logger');
-const errorMiddleware = require('./middlewares/Errors');
+const { corsHandler } = require('./middlewares/cors');
+const { limiter } = require('./middlewares/limiter');
+
+const errorHandler = require('./middlewares/errorHandler');
+const { MONGOOSE_DB } = require('./constants/constants');
+
+const { PORT = 3001 } = process.env;
 
 const app = express();
+mongoose.connect(MONGOOSE_DB);
 
-app.use(express.static('public'));
-app.use(cors({ origin }));
-app.use(express.json());
-app.use(requestLogger);
-app.use(limit);
 app.use(helmet());
+app.use(express.json());
 app.use(cookieParser());
-app.use(require('./routes'));
+app.use(requestLogger);
+app.use(corsHandler);
+
+app.use('/', limiter, require('./routes/index'));
 
 app.use(errorLogger);
+
 app.use(errors());
-app.use(errorMiddleware);
+app.use(errorHandler);
 
-async function main() {
-  await mongoose.connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
-
-  app.listen(PORT, () => console.log(`Сервер запущен на порте ${PORT}`));
-}
-
-main();
+app.listen(PORT);

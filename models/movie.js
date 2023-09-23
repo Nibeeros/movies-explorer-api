@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-const validator = require('validator');
-const { MESSAGE_ERROR_WRONG_URL } = require('../utils/Constants');
+const { linkRegex, wrongLinkMsg } = require('../constants/constants');
 
 const movieSchema = new mongoose.Schema({
   country: {
@@ -27,24 +26,30 @@ const movieSchema = new mongoose.Schema({
     type: String,
     required: true,
     validate: {
-      validator: (v) => validator.isURL(v),
-      message: MESSAGE_ERROR_WRONG_URL,
+      validator(v) {
+        return linkRegex.test(v);
+      },
+      message: wrongLinkMsg,
     },
   },
   trailerLink: {
     type: String,
     required: true,
     validate: {
-      validator: (v) => validator.isURL(v),
-      message: MESSAGE_ERROR_WRONG_URL,
+      validator(v) {
+        return linkRegex.test(v);
+      },
+      message: wrongLinkMsg,
     },
   },
   thumbnail: {
     type: String,
     required: true,
     validate: {
-      validator: (v) => validator.isURL(v),
-      message: MESSAGE_ERROR_WRONG_URL,
+      validator(v) {
+        return linkRegex.test(v);
+      },
+      message: wrongLinkMsg,
     },
   },
   owner: {

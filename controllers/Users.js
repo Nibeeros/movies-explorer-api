@@ -1,107 +1,101 @@
-const bcrypt = require('bcryptjs');
-const { ValidationError } = require('mongoose').Error;
+const mongoose = require('mongoose');
+const bycript = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const {
-  InvalidError,
-  RegisterError,
-  NotFoundError,
-} = require('../errors');
-const { JWT_SECRET, JWT_KEY } = require('../utils/Config');
-const {
-  MONGODB_CONFLICT,
-  MESSAGE_LOGOUT,
-  HTTP_STATUS_CREATED,
-  MESSAGE_ERROR_NOT_FOUND_USER,
-} = require('../utils/Constants');
 
-const getUser = (req, res, next) => {
+const {
+  CREATED, authSuccessMsg, logoutMsg, emailExistMsg, incorrectDataMsg, JWT_SECRET,
+} = require('../constants/constants');
+const ConflictError = require('../errors/ConflictError');
+const BadRequestError = require('../errors/BadRequestError');
+
+// Returns user's info (email and name)
+module.exports.getUserInfo = (req, res, next) => {
   User.findById(req.user._id)
-    .orFail(new NotFoundError(MESSAGE_ERROR_NOT_FOUND_USER))
-    .then((user) => res.send(user))
-    .catch(next);
-};
-
-const createUser = (req, res, next) => {
-  const {
-    name, email, password,
-  } = req.body;
-
-  bcrypt
-    .hash(password, 10)
-    .then((hash) => User.create({
-      name,
-      email,
-      password: hash,
-    }))
-    .then((user) => res.status(HTTP_STATUS_CREATED).send({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-    }))
-    .catch((err) => {
-      if (err.code === MONGODB_CONFLICT) {
-        return next(new RegisterError());
-      }
-
-      if (err instanceof ValidationError) {
-        return next(new InvalidError());
-      }
-
-      return next(err);
+    .then((user) => {
+      res.send({ data: user });
     })
     .catch(next);
 };
 
-const updateProfile = (req, res, next) => {
+// User's info update (email and name)
+module.exports.updateUserInfo = (req, res, next) => {
   const { name, email } = req.body;
 
-  return User.findByIdAndUpdate(
+  User.findByIdAndUpdate(
     req.user._id,
     { name, email },
     { new: true, runValidators: true },
-  ).then((user) => res.send(user))
+  )
+    .then((user) => res.send({ data: user }))
     .catch((err) => {
-      if (err.code === MONGODB_CONFLICT) {
-        return next(new RegisterError());
+      if (err.code === 11000) {
+        next(new ConflictError(emailExistMsg));
       }
-
-      if (err instanceof ValidationError) {
-        return next(new InvalidError());
+      if (err instanceof mongoose.Error.ValidationError) {
+        next(new BadRequestError(incorrectDataMsg));
       }
-
-      return next(err);
+      next(err);
     });
 };
 
-const login = (req, res, next) => {
+// Creates new user
+module.exports.createUser = (req, res, next) => {
+  const { email, name } = req.body;
+
+  bycript
+    .hash(req.body.password, 10)
+    .then((hash) => User.create({
+      email,
+      password: hash,
+      name,
+    }))
+    .then((user) => {
+      res.status(CREATED).send({
+        data: {
+          name: user.name,
+          email: user.email,
+        },
+      });
+    })
+    .catch((err) => {
+      if (err.code === 11000) {
+        next(new ConflictError(emailExistMsg));
+      }
+      if (err instanceof mongoose.Error.ValidationError) {
+        next(new BadRequestError(incorrectDataMsg));
+      }
+      next(err);
+    });
+};
+
+// Returns JWT once email and password verified
+module.exports.loginUser = (req, res, next) => {
   const { email, password } = req.body;
 
-  User.findByCredentials(email, password)
+  return User.findUserByCredentials(email, password)
     .then((user) => {
       const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
         expiresIn: '7d',
       });
 
-      res.cookie(JWT_KEY, token, {
-        maxAge: 86_400_000 * 7,
-        httpOnly: true,
-      });
-
-      return res.send({ token });
+      res
+        .cookie('jwt', token, {
+          maxAge: 3600000 * 24 * 7,
+          httpOnly: true,
+          sameSite: 'strict',
+        })
+        .send({ message: authSuccessMsg });
     })
-    .catch(next);
+    .catch((err) => {
+      if (err instanceof mongoose.Error.ValidationError) {
+        next(new BadRequestError(incorrectDataMsg));
+      }
+      next(err);
+    });
 };
 
-const logout = (_, res) => {
-  res.clearCookie(JWT_KEY);
-  res.send({ message: MESSAGE_LOGOUT });
-};
-
-module.exports = {
-  updateProfile,
-  createUser,
-  getUser,
-  logout,
-  login,
+// Removes JWT from cookies once user signout
+module.exports.logoutUser = (req, res) => {
+  res.clearCookie('jwt').send({ message: logoutMsg });
 };

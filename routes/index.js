@@ -1,17 +1,27 @@
 const router = require('express').Router();
+const { signupValidation, signinValidation } = require('../middlewares/validation');
 const auth = require('../middlewares/auth');
-const { NotFoundError } = require('../errors');
-const { logout } = require('../controllers/Users');
+const { createUser, loginUser, logoutUser } = require('../controllers/users');
+const NotFoundError = require('../errors/NotFoundError');
+const { noSuchRouteMsg } = require('../constants/constants');
 
-router.use(require('./auth'));
+router.post(
+  '/signup',
+  signupValidation,
+  createUser,
+);
+router.post(
+  '/signin',
+  signinValidation,
+  loginUser,
+);
+router.post('/signout', auth, logoutUser);
 
-router.use(auth);
+router.use('/users', auth, require('./users'));
+router.use('/movies', auth, require('./movies'));
 
-router.use('/users', require('./users'));
-router.use('/movies', require('./movies'));
-
-router.post('/signout', logout);
-
-router.use('*', (_, res, next) => next(new NotFoundError()));
+router.use('*', auth, (req, res, next) => {
+  next(new NotFoundError(noSuchRouteMsg));
+});
 
 module.exports = router;

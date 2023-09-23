@@ -1,25 +1,25 @@
-const { ValidationError } = require('mongoose').Error;
+const mongoose = require('mongoose');
 const Movie = require('../models/movie');
 const {
-  InvalidError,
-  NotFoundError,
-  ForbiddenError,
-} = require('../errors');
-const {
-  HTTP_STATUS_OK,
-  HTTP_STATUS_CREATED,
-  MESSAGE_VIDEO_DELETED,
-  MESSAGE_ERROR_WRONG_DELETE,
-} = require('../utils/Constants');
+  CREATED, deletingRestrictedMsg, noSuchMovieIdMsg, incorrectDataMsg,
+} = require('../constants/constants');
+const NotFoundError = require('../errors/NotFoundError');
+const RestrictedError = require('../errors/RestrictedError');
+const BadRequestError = require('../errors/BadRequestError');
 
-const getMovies = (req, res, next) => {
-  Movie.find({ owner: req.user._id })
-    .populate(['owner'])
-    .then((movies) => res.status(HTTP_STATUS_OK).send(movies))
+// Returns all movies saved by current user
+module.exports.getSavedMovies = (req, res, next) => {
+  const userId = req.user._id;
+
+  Movie.find({ owner: userId })
+    .then((movies) => {
+      res.send({ data: movies });
+    })
     .catch(next);
 };
 
-const createMovie = (req, res, next) => {
+// Creates movie with params passed in body:
+module.exports.addMovie = (req, res, next) => {
   const {
     country,
     director,
@@ -28,11 +28,12 @@ const createMovie = (req, res, next) => {
     description,
     image,
     trailerLink,
-    thumbnail,
-    movieId,
     nameRU,
     nameEN,
+    thumbnail,
+    movieId,
   } = req.body;
+  const owner = req.user._id;
 
   Movie.create({
     country,
@@ -42,40 +43,33 @@ const createMovie = (req, res, next) => {
     description,
     image,
     trailerLink,
-    thumbnail,
-    movieId,
     nameRU,
     nameEN,
-    owner: req.user._id,
+    thumbnail,
+    movieId,
+    owner,
   })
-    .then((movie) => movie.populate('owner'))
-    .then((data) => res.status(HTTP_STATUS_CREATED).send(data))
+    .then((movie) => res.status(CREATED).send({ data: movie }))
     .catch((err) => {
-      if (err instanceof ValidationError) {
-        return next(new InvalidError());
+      if (err instanceof mongoose.Error.ValidationError) {
+        next(new BadRequestError(incorrectDataMsg));
       }
-
-      return next(err);
+      next(err);
     });
 };
 
-const deleteMovie = (req, res, next) => {
+// Removes saved movie by id
+module.exports.removeMovie = (req, res, next) => {
   Movie.findById(req.params.movieId)
-    .orFail(new NotFoundError())
     .then((movie) => {
-      if (!movie.owner.equals(req.user._id)) {
-        return next(new ForbiddenError(MESSAGE_ERROR_WRONG_DELETE));
+      if (movie && (movie.owner.toString() === req.user._id)) {
+        return Movie.findByIdAndRemove(movie._id);
       }
-
-      return movie.deleteOne().then(() => res.send({
-        message: MESSAGE_VIDEO_DELETED,
-      })).catch(next);
+      if (movie && (movie.owner.toString() !== req.user._id)) {
+        throw new RestrictedError(deletingRestrictedMsg);
+      }
+      throw new NotFoundError(noSuchMovieIdMsg);
     })
+    .then((mov) => res.send({ data: mov }))
     .catch(next);
-};
-
-module.exports = {
-  deleteMovie,
-  createMovie,
-  getMovies,
 };
