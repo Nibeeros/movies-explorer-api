@@ -1,6 +1,8 @@
 const allowedCors = [
   'https://nibfilm.nomoredomainsicu.ru',
   'http://nibfilm.nomoredomainsicu.ru',
+  'https://api.nibfilm.nomoredomainsicu.ru',
+  'http://api.nibfilm.nomoredomainsicu.ru',
   'http://localhost:3001',
   'http://localhost:3000',
   'http://localhost:4000',
