@@ -4,6 +4,7 @@ const allowedCors = [
   'http://localhost:4000',
   'http://localhost:4001',
   'http://nibfilm.nomoredomainsicu.ru',
+  'https://nibfilm.nomoredomainsicu.ru',
 ];
 
 const corsHandler = (req, res, next) => {
