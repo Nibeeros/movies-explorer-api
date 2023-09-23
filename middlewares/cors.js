@@ -1,10 +1,10 @@
 const allowedCors = [
+  'https://nibfilm.nomoredomainsicu.ru',
+  'http://nibfilm.nomoredomainsicu.ru',
   'http://localhost:3001',
   'http://localhost:3000',
   'http://localhost:4000',
   'http://localhost:4001',
-  'http://nibfilm.nomoredomainsicu.ru',
-  'https://nibfilm.nomoredomainsicu.ru',
 ];
 
 const corsHandler = (req, res, next) => {
